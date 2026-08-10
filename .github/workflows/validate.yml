@@ -1,0 +1,48 @@
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Validate marketplace and plugins
+        run: python3 scripts/validate.py --strict
+
+      - name: Check the extraction script compiles
+        run: python3 -m py_compile plugins/screenwriting-structure/skills/structure-audit/assets/extract-structure.py
+
+      - name: Warn if no plugin version changed
+        if: github.event_name == 'push'
+        run: |
+          # A push that touches a plugin but leaves its version alone ships nothing:
+          # Claude keys updates off the version string in plugin.json.
+          base="${{ github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "First push — nothing to compare."; exit 0
+          fi
+          status=0
+          for dir in plugins/*/; do
+            plugin=$(basename "$dir")
+            manifest="${dir}.claude-plugin/plugin.json"
+            changed=$(git diff --name-only "$base" HEAD -- "$dir" | grep -v '\.claude-plugin/plugin\.json$' || true)
+            [ -z "$changed" ] && continue
+            if git diff "$base" HEAD -- "$manifest" | grep -q '^[+-][[:space:]]*"version"'; then
+              echo "::notice::$plugin changed and its version was bumped — users will receive it."
+            else
+              echo "::warning::$plugin changed but its version was NOT bumped in plugin.json. Installed users will keep the cached copy. Run ./scripts/bump-version.sh $plugin patch"
+              status=1
+            fi
+          done
+          exit $status
+        continue-on-error: true

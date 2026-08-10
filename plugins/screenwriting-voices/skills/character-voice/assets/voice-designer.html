@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Designer — Character Voice Workbench</title>
+<style>
+  :root{
+    --bg:#14151a; --panel:#1c1e26; --panel2:#22242e; --ink:#e8e6df; --ink-dim:#9a978c;
+    --accent:#e0a458; --accent2:#7fb4a2; --line:#2e313d; --danger:#c96f6f; --mono:"SF Mono",Consolas,Menlo,monospace;
+    --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  header{padding:18px 26px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);z-index:20}
+  header h1{font-family:var(--serif);font-size:22px;font-weight:600;letter-spacing:.3px}
+  header .sub{color:var(--ink-dim);font-size:13px}
+  header .actions{margin-left:auto;display:flex;gap:8px;flex-wrap:wrap}
+  button,select.btn{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px 13px;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);color:#14151a;border-color:var(--accent);font-weight:600}
+  button.primary:hover{filter:brightness(1.08);color:#14151a}
+  .wrap{display:grid;grid-template-columns:minmax(360px,460px) 1fr;gap:0;min-height:calc(100vh - 62px)}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  /* ---- left: controls ---- */
+  #controls{border-right:1px solid var(--line);overflow-y:auto;max-height:calc(100vh - 62px);padding:10px 0 60px}
+  details.group{border-bottom:1px solid var(--line)}
+  details.group>summary{cursor:pointer;list-style:none;padding:12px 22px;font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);display:flex;gap:8px;align-items:center}
+  details.group>summary::before{content:"▸";transition:transform .15s;color:var(--ink-dim)}
+  details.group[open]>summary::before{transform:rotate(90deg)}
+  details.group>summary .hint{font-weight:400;text-transform:none;letter-spacing:0;color:var(--ink-dim);font-size:12px}
+  .grp-body{padding:2px 22px 18px}
+  .axis{margin:14px 0}
+  .axis label.ax{display:flex;justify-content:space-between;align-items:baseline;font-size:13.5px;font-weight:600;margin-bottom:4px}
+  .axis label.ax .val{color:var(--accent2);font-weight:600;font-size:13px}
+  .axis input[type=range]{width:100%;accent-color:var(--accent)}
+  .axis .ends{display:flex;justify-content:space-between;font-size:11px;color:var(--ink-dim)}
+  .field{margin:10px 0}
+  .field label{display:block;font-size:12.5px;font-weight:600;margin-bottom:3px;color:var(--ink)}
+  .field label small{color:var(--ink-dim);font-weight:400}
+  .field input[type=text],.field textarea,.field select{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:6px;color:var(--ink);padding:7px 9px;font-size:13.5px}
+  .field textarea{min-height:56px;resize:vertical;font-family:inherit}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12.5px;cursor:pointer;color:var(--ink-dim);user-select:none}
+  .chip.on{border-color:var(--accent);color:var(--accent)}
+  .cf{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .cf .chip{max-width:100%}
+  .cf input.cf-custom{flex:1 1 140px;min-width:130px;background:var(--panel);border:1px dashed var(--line);border-radius:6px;color:var(--ink);padding:5px 9px;font-size:12.5px}
+  .cf input.cf-custom:focus{border-style:solid;border-color:var(--accent2);outline:none}
+  .duo{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .note{font-size:12px;color:var(--ink-dim);margin-top:4px}
+  /* ---- right: preview ---- */
+  #preview{overflow-y:auto;max-height:calc(100vh - 62px);padding:22px 30px 80px}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:18px;position:sticky;top:0;background:var(--bg);padding-top:2px;z-index:10}
+  .tab{padding:9px 16px;font-size:13.5px;cursor:pointer;color:var(--ink-dim);border-bottom:2px solid transparent}
+  .tab.on{color:var(--ink);border-bottom-color:var(--accent)}
+  .pane{display:none}.pane.on{display:block}
+  h3.ph{font-family:var(--serif);font-size:17px;margin:6px 0 4px}
+  .ph-sub{color:var(--ink-dim);font-size:13px;margin-bottom:14px}
+  .morph-notch{border:1px solid var(--line);border-left:3px solid var(--line);border-radius:8px;padding:12px 16px;margin:10px 0;background:var(--panel)}
+  .morph-notch.current{border-left-color:var(--accent);background:var(--panel2)}
+  .morph-notch .nl{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-dim);display:flex;gap:10px;align-items:baseline}
+  .morph-notch.current .nl{color:var(--accent)}
+  .morph-notch .nd{font-size:12.5px;color:var(--ink-dim);margin:2px 0 6px}
+  .mline{font-family:var(--serif);font-size:15.5px;margin:4px 0;color:var(--ink)}
+  .mline::before{content:"“";color:var(--ink-dim)} .mline::after{content:"”";color:var(--ink-dim)}
+  .beat{font-size:12px;color:var(--accent2);margin-bottom:2px}
+  .warn{border:1px solid #6b5b2a;background:#2a2618;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#d8c98a;margin:0 0 16px}
+  .comp-block{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:12px 0}
+  .comp-block .t{font-size:12px;color:var(--ink-dim);margin-bottom:6px}
+  .comp-line{font-family:var(--serif);font-size:16px}
+  pre.md{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;color:var(--ink)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 22px}
+  .card h4{font-family:var(--serif);font-size:19px;margin-bottom:2px}
+  .card .ess{color:var(--accent);font-style:italic;font-size:14px;margin-bottom:12px}
+  .card dl{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;font-size:13px}
+  .card dt{color:var(--ink-dim)} .card dd{color:var(--ink)}
+  .origin-sample{margin:8px 0;padding:10px 14px;border-left:3px solid var(--accent2);background:var(--panel);border-radius:0 8px 8px 0}
+  .origin-sample .os-t{font-size:12px;color:var(--ink-dim)}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--accent);color:#14151a;font-weight:600;padding:10px 20px;border-radius:8px;display:none;z-index:99}
+  input[type=file]{display:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>Voice Designer</h1>
+  <span class="sub">design a character's voice → export <b>voice.md</b> → let Claude write the audition</span>
+  <div class="actions">
+    <select id="presetSel" class="btn"><option value="">Presets…</option></select>
+    <button id="btnImport">Import voice.md</button>
+    <input type="file" id="fileImport" accept=".md,.txt">
+    <button id="btnReset">Reset</button>
+    <button id="btnCopy">Copy voice.md</button>
+    <button id="btnExport" class="primary">Download voice.md</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="controls">
+    <details class="group" open><summary>Character <span class="hint">— who is this</span></summary>
+      <div class="grp-body">
+        <div class="field"><label>Name</label><input type="text" id="f_name" placeholder="e.g. MARION DUFRESNE"></div>
+        <div class="field"><label>Essence <small>— the logline of the mouth</small></label><input type="text" id="f_essence" placeholder="e.g. Michelin discipline in a second language — precision as armor"></div>
+        <div class="field"><label>Identity <small>— who/where/when; what their speech must survive</small></label><textarea id="f_identity" placeholder="Age, world, occupation, era. e.g. 38, French chef running a Boston kitchen, 2020s…"></textarea></div>
+      </div>
+    </details>
+    <div id="axisGroups"></div>
+    <details class="group"><summary>Humor</summary>
+      <div class="grp-body">
+        <div class="field"><label>Styles <small>— pick 1–2; the joke they'd make</small></label><div class="chips" id="humorChips"></div></div>
+        <div class="duo">
+          <div class="field"><label>Target</label><select id="f_humorTarget"><option>—</option><option>self</option><option>others</option><option>the world</option><option>the absurd</option></select></div>
+          <div class="field"><label>Off-switch <small>— what kills the jokes</small></label><div class="cf" id="f_humorOff"></div></div>
+        </div>
+      </div>
+    </details>
+    <details class="group"><summary>Markers <span class="hint">— fillers, tags, address</span></summary>
+      <div class="grp-body">
+        <div class="field"><label>Openers <small>— pick up to 2</small></label><div class="cf" id="f_openers"></div></div>
+        <div class="field"><label>Tags <small>— pick up to 2</small></label><div class="cf" id="f_tags"></div></div>
+        <div class="field"><label>Concession style <small>— pick one</small></label><div class="cf" id="f_concede"></div></div>
+        <div class="field"><label>Terms of address <small>— pick up to 2</small></label><div class="cf" id="f_address"></div></div>
+      </div>
+    </details>
+    <details class="group"><summary>Origin <span class="hint">— dialect · L1 · era · class</span></summary>
+      <div class="grp-body">
+        <div class="duo">
+          <div class="field"><label>Native variety</label><select id="f_variety"></select></div>
+          <div class="field"><label>L1 (if non-native)</label><select id="f_l1"></select></div>
+        </div>
+        <div class="duo">
+          <div class="field"><label>Proficiency</label><select id="f_prof"><option>—</option><option>survival</option><option>functional</option><option>fluent-marked</option><option>near-native</option></select></div>
+          <div class="field"><label>Intensity dial</label><select id="f_intensity"><option>light</option><option>medium</option><option>heavy</option></select></div>
+        </div>
+        <div class="field"><label>Signature features <small>— pick 3–5 from the selected variety/L1 kits</small></label><div class="cf" id="f_originFeatures"></div><div class="note" id="featNote">Select a variety or L1 above to load its feature kit.</div></div>
+        <div class="field"><label>Code-switch triggers <small>— pick up to 3</small></label><div class="cf" id="f_codeswitch"></div></div>
+        <div class="duo">
+          <div class="field"><label>Education imprint</label><select id="f_edu"><option>—</option><option>unlettered</option><option>self-taught</option><option>schooled</option><option>academic</option></select></div>
+          <div class="field"><label>Era / generation <small>— pick one</small></label><div class="cf" id="f_era"></div></div>
+        </div>
+        <div class="field"><label>Class markers <small>— pick up to 2</small></label><div class="cf" id="f_class"></div></div>
+      </div>
+    </details>
+    <details class="group"><summary>Engine <span class="hint">— the axes' why</span></summary>
+      <div class="grp-body">
+        <div class="field"><label>Signature move <small>— the ONE mechanism (mandatory; pick or write your own)</small></label><div class="cf" id="f_sigmove"></div></div>
+        <div class="field"><label>Obsessions / steering topics <small>— pick up to 3</small></label><div class="cf" id="f_obsessions"></div></div>
+        <div class="field"><label>Metaphor source-domains <small>— pick up to 3</small></label><div class="cf" id="f_metaphors"></div></div>
+        <div class="field"><label>Taboo topics <small>— pick up to 2</small></label><div class="cf" id="f_taboos"></div></div>
+        <div class="field"><label>Deflection maneuver <small>— when a taboo nears; pick one</small></label><div class="cf" id="f_deflect"></div></div>
+        <div class="duo">
+          <div class="field"><label>Tic #1 <small>(cap: 2 — pick a pattern or type your own)</small></label><input type="text" id="f_tic1" list="ticList" placeholder='e.g. "Great great."'></div>
+          <div class="field"><label>Tic #2</label><input type="text" id="f_tic2" list="ticList" placeholder='e.g. tag "…yes?"'></div>
+          <datalist id="ticList">
+            <option value='doubled word — "Great great." / "Sure sure."'></option>
+            <option value='receipt token — "Uh-huh."'></option>
+            <option value='consensus tag — "…yes?"'></option>
+            <option value='clause-final "so" — "I will, so."'></option>
+            <option value='name-as-leash — repeats your name till compliance'></option>
+            <option value='antique oath — "for hells bells"'></option>
+            <option value='motion-to-open — "I&#39;m just sayin&#39;—"'></option>
+            <option value='self-brand — "That&#39;s the thing about me—"'></option>
+            <option value='lecture connective — "Hence…" / "Need I remind you"'></option>
+            <option value='evidence sword — "Per my email."'></option>
+          </datalist>
+        </div>
+        <div class="field"><label>Never says <small>— pick up to 3</small></label><div class="cf" id="f_neversays"></div></div>
+      </div>
+    </details>
+    <details class="group"><summary>Under pressure <span class="hint">— deltas, not traits (mandatory)</span></summary>
+      <div class="grp-body">
+        <div class="note" style="margin-bottom:8px">The law: stress subtracts complexity and amplifies signature — until the breaking point, where even the signature collapses into plain short true words.</div>
+        <div class="field"><label>Anger runs… <small>— pick one</small></label><div class="cf" id="f_angerPol"></div></div>
+        <div class="field"><label>Anger — what changes <small>— pick up to 3</small></label><div class="cf" id="f_anger"></div></div>
+        <div class="field"><label>Fear / stress <small>— pick up to 3</small></label><div class="cf" id="f_fear"></div></div>
+        <div class="field"><label>Grief / hurt <small>— pick up to 3</small></label><div class="cf" id="f_grief"></div></div>
+        <div class="field"><label>Deceit — their tells <small>— pick up to 2</small></label><div class="cf" id="f_deceit"></div></div>
+        <div class="field"><label>Tenderness — who unlocks it, how it shows <small>— pick up to 3</small></label><div class="cf" id="f_tender"></div></div>
+      </div>
+    </details>
+  </div>
+
+  <div id="preview">
+    <div class="tabs">
+      <div class="tab on" data-pane="morph">Axis morphs</div>
+      <div class="tab" data-pane="origin">Origin samples</div>
+      <div class="tab" data-pane="composite">Rough composite</div>
+      <div class="tab" data-pane="card">Voice card</div>
+      <div class="tab" data-pane="export">voice.md</div>
+    </div>
+    <div class="pane on" id="pane-morph"></div>
+    <div class="pane" id="pane-origin"></div>
+    <div class="pane" id="pane-composite"></div>
+    <div class="pane" id="pane-card"></div>
+    <div class="pane" id="pane-export"></div>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ============================== AXES DATA =============================== */
+/* Each notch's lines are hand-written: the SAME dramatic beat rendered at that
+   notch, so moving a control shows exactly what that axis does. */
+const AXES = [
+ {title:"Stance", hint:"what they do with truth & feeling",
+  beat:"Beat: telling a business partner the money is gone.",
+  axes:[
+   {id:"directness", name:"Directness", ends:["blunt","coded"], notches:[
+    {label:"blunt", desc:"names the thing, no cushioning", lines:["The money's gone. All of it. I'm telling you before the bank does."]},
+    {label:"plain", desc:"says what they mean, normal padding", lines:["We've lost the money. I wanted you to hear it from me first."]},
+    {label:"measured", desc:"chooses the frame before speaking", lines:["There's something you need to know about the accounts, and I'd rather you sat down first."]},
+    {label:"sideways", desc:"arrives via anecdote or comparison", lines:["You know how my uncle kept talking about his orchard, right up until the auction? I've been talking about the expansion a lot lately."]},
+    {label:"coded", desc:"metaphor does it; listener takes the last step", lines:["We built the house on sand, partner. Tide came in last night. Tide always comes in."]}
+   ]},
+   {id:"candor", name:"Candor", ends:["radical","performative"], notches:[
+    {label:"radical", desc:"tells truths that cost them", lines:["The money's gone and it's my fault. I saw the risk in March and said nothing, because I wanted to be right."]},
+    {label:"frank", desc:"honest by default, softens edges", lines:["The money's gone. I made some calls I shouldn't have. We'll go through every one of them together."]},
+    {label:"curated", desc:"true in what's said, strategic in what's left out", lines:["The position moved against us badly. The details are complicated — what matters now is the path forward."]},
+    {label:"evasive", desc:"deflects, answers a different question", lines:["There's been some turbulence. Markets. Everyone's down this quarter — have you talked to Priya lately? How's the family?"]},
+    {label:"performative", desc:"truth is one tool among several", lines:["Honestly? This is the best thing that could've happened to us. The fund was holding us back — this frees us up."]}
+   ]},
+   {id:"display", name:"Emotional display", ends:["sealed","effusive"], notches:[
+    {label:"sealed", desc:"affect flattened; feeling shows only in action", lines:["The money's gone. Sign here — the accountant needs it by five."]},
+    {label:"guarded", desc:"feeling admitted obliquely, with delay", lines:["The money's gone. …Anyway. It's handled. It'll be handled."]},
+    {label:"pressurized", desc:"contained until it isn't; leaks in bursts", lines:["The money's gone. It's fine. It's — no, you know what, it's not fine, forget I said — it's fine."]},
+    {label:"open", desc:"names feelings without ceremony", lines:["The money's gone and I'm scared. I haven't slept. I keep seeing your kids' faces."]},
+    {label:"effusive", desc:"everything shows, amplified", lines:["It's gone, it's all gone — oh God, I've ruined us, everything we built — look at me, I can't even hold this coffee—"]}
+   ]},
+   {id:"tact", name:"Tact", ends:["abrasive","ceremonious"], notches:[
+    {label:"abrasive", desc:"insult is grammar", lines:["Money's gone. Cry about it on your own time — right now I need you thinking."]},
+    {label:"brusque", desc:"no cruelty, no cushions either", lines:["The money's gone. Sit down. We've got an hour to make a plan."]},
+    {label:"plain-courteous", desc:"the default please/thanks of their world", lines:["I'm sorry to be the one telling you this — the money's gone."]},
+    {label:"polished", desc:"smoothness is learned and maintained", lines:["I'm afraid I have hard news, and I'd rather give it to you badly in person than smoothly over the phone: the money is gone."]},
+    {label:"ceremonious", desc:"formality as armor or crown", lines:["You have kept faith with me through twenty years and two recessions, which is why you deserve to hear this standing, eye to eye: the money is gone."]}
+   ]}
+  ]},
+ {title:"Syntax", hint:"how sentences get built",
+  beat:"Beat: explaining why they were late.",
+  axes:[
+   {id:"length", name:"Sentence length", ends:["clipped","cascading"], notches:[
+    {label:"clipped", desc:"≤5-word units dominate", lines:["Traffic. Bridge was shut. Here now."]},
+    {label:"short", desc:"single clauses, quick full stops", lines:["The bridge was closed. I came the long way. Sorry I'm late."]},
+    {label:"mixed", desc:"natural variance", lines:["Sorry — the bridge was closed, so I had to loop around by the mill. Did I miss anything?"]},
+    {label:"long", desc:"multi-clause but controlled", lines:["I'd have been here at eight, except they shut the bridge for an inspection, which meant the mill road, which meant every school bus in the county."]},
+    {label:"cascading", desc:"keeps finding another clause", lines:["So I'm on the bridge at seven-forty, plenty of time, and there's a cop turning everyone around — no sign, no reason, just a glove and a face — and the mill road's flooded past Hutchins' place, and the gas station, you know the one, closed, of course, so by the time I—"]}
+   ]},
+   {id:"completeness", name:"Completeness", ends:["fragments","baroque"], notches:[
+    {label:"fragments", desc:"verbless, subject-dropped shards", lines:["Bridge. Closed. Some inspection thing. Long way round."]},
+    {label:"elided", desc:"casual drops and contractions", lines:["Bridge was shut. Had to go round. You been waiting long?"]},
+    {label:"complete", desc:"full grammatical sentences", lines:["The bridge was closed for an inspection, so I had to drive around by the mill road."]},
+    {label:"elaborate", desc:"subordinate clauses, appositives", lines:["The bridge — which, I'd note, they inspected in April — was closed again, so the only remaining option was the mill road."]},
+    {label:"baroque", desc:"nested architecture, on display", lines:["The bridge, having apparently failed whatever examination it passed this spring, was closed to all traffic, obliging me — obliging everyone, though the others seemed less surprised — to attempt the mill road."]}
+   ]},
+   {id:"certainty", name:"Certainty", ends:["hedging","absolute"], notches:[
+    {label:"hedging", desc:"requests permission to have opinions", lines:["I think the bridge was maybe closed? There was some kind of… I don't know, it might've been an inspection thing?"]},
+    {label:"qualified", desc:"one softener per claim", lines:["The bridge was closed — some inspection, I believe. Anyway, I'm here now."]},
+    {label:"balanced", desc:"hedges when unsure, asserts when sure", lines:["The bridge was closed. Probably that inspection they postponed. Won't happen again."]},
+    {label:"assertive", desc:"declaratives, few qualifiers", lines:["Bridge was closed. Inspection. I took the mill road — fastest option left."]},
+    {label:"absolute", desc:"speaks in laws", lines:["The bridge was closed. There is exactly one alternate route, and I took it. No one could have arrived sooner."]}
+   ]},
+   {id:"momentum", name:"Momentum", ends:["linear","derailing"], notches:[
+    {label:"linear", desc:"A then B then C", lines:["Three things happened: the bridge closed, the mill road flooded, and the gas station was shut. That's the whole story."]},
+    {label:"orderly-with-asides", desc:"one detour, then returns", lines:["The bridge was closed — they did the same thing in April, remember — so I went around by the mill, and here I am."]},
+    {label:"circling", desc:"returns to the same spot from new angles", lines:["The bridge was closed. Which — okay, but why? They inspected it in April. I keep coming back to that. April."]},
+    {label:"digressive", desc:"the tangent is the point", lines:["The bridge was closed, which is how I ended up talking to a cop whose brother, it turns out, went to school with Denny — small world — anyway. Where were we?"]},
+    {label:"derailing", desc:"abandons clauses mid-flight, restarts", lines:["The bridge was — okay, so first, and this matters — no. Let me start over. Seven-forty. I'm — wait, was the meeting moved? Someone said the meeting moved."]}
+   ]}
+  ]},
+ {title:"Lexicon", hint:"which words",
+  beat:"Beat: describing a rival.",
+  axes:[
+   {id:"register", name:"Register", ends:["street","elevated"], notches:[
+    {label:"street", desc:"the vernacular of their block, unlaundered", lines:["Man's a snake. Smile in your face, hand in your pocket. Watch him."]},
+    {label:"casual", desc:"relaxed general speech", lines:["He's slick, that's all I'm saying. Nice guy in the room, different guy in the parking lot."]},
+    {label:"standard", desc:"neutral, placeless", lines:["I don't trust him. He says the right things, but his record tells another story."]},
+    {label:"professional", desc:"an occupation's idiom", lines:["I have concerns about his track record. The pattern across his last three ventures speaks for itself."]},
+    {label:"elevated", desc:"literary, ornate, performed", lines:["He has the manners of a diplomat and the instincts of a receiver in bankruptcy — everything he touches, he inventories."]}
+   ]},
+   {id:"texture", name:"Word texture", ends:["concrete","latinate"], notches:[
+    {label:"concrete-plain", desc:"things you can drop on your foot", lines:["He'll smile, shake your hand, and take your lunch."]},
+    {label:"plain", desc:"ordinary words, well aimed", lines:["He's friendly right up until it costs him something."]},
+    {label:"mixed", desc:"plain base, occasional reach", lines:["He's charming, sure — but charm is just interest, and interest compounds."]},
+    {label:"bookish", desc:"reads; it shows", lines:["He has the courtier's gift: sincerity in every register but the genuine."]},
+    {label:"latinate-technical", desc:"polysyllabic precision, jargon fields", lines:["His affability is instrumental — a solvent for due diligence. Observe the litigation history."]}
+   ]},
+   {id:"profanity", name:"Profanity", ends:["never","baroque"], notches:[
+    {label:"never", desc:"absence is characterization", lines:["He is — and I say this as a churchgoing woman — a deeply disappointing man."]},
+    {label:"detonation", desc:"so rare each one is an event", lines:["I've defended him in every room in this town. Not anymore. The man's a shit."]},
+    {label:"seasoning", desc:"casual, low heat", lines:["He's a damn weathervane. Whichever way the money blows."]},
+    {label:"punctuation", desc:"structural, rhythmic, unremarkable to the speaker", lines:["He's a fucking weathervane, is what he is. Money blows, he spins."]},
+    {label:"baroque", desc:"profanity as craft — compound, imagistic", lines:["He's the kind of bastard who'd sell you the rope, invoice you for the tree, and then give a very moving eulogy about knots."]}
+   ]}
+  ]},
+ {title:"Sound", hint:"rhythm & interaction",
+  beat:"Beat: taking bad news on the phone / replying in a meeting.",
+  axes:[
+   {id:"tempo", name:"Tempo & pause", ends:["halting","torrential"], notches:[
+    {label:"halting", desc:"hesitation inside the clause; self-repair", lines:["Right. No, I — okay. Um. When did — sorry. When?"]},
+    {label:"deliberate", desc:"slow on purpose; makes silence work", lines:["…Say it once more. Slowly. I want to be sure I heard it."]},
+    {label:"measured", desc:"even, unhurried, complete", lines:["Okay. Tell me what happened, from the beginning."]},
+    {label:"quick", desc:"fast volley, short gaps", lines:["When? Who else knows? Okay — don't call anyone. I'm coming in."]},
+    {label:"torrential", desc:"speech outruns breath", lines:["Okay okay okay tell me exactly what he said — no, first: who called you, when, what time, and why am I hearing this from you and not from Marcus — don't answer, keep talking—"]}
+   ]},
+   {id:"turntaking", name:"Turn-taking & listening", ends:["yields","steamrolls"], notches:[
+    {label:"yields", desc:"waits; cedes on overlap; finishes last", lines:["(only after the silence is fully theirs) Maybe. If you've finished."]},
+    {label:"volleys", desc:"trades cleanly, matches partner's length", lines:["Numbers hold, we move. They don't, we wait. Your call?"]},
+    {label:"holds-floor", desc:"monologue-prone; answers grow", lines:["Let me answer that properly, because there are three things underneath it, and nobody ever says the third one out loud."]},
+    {label:"interrupts", desc:"cuts in when they've heard enough", lines:["—the numbers won't hold. Next?"]},
+    {label:"steamrolls", desc:"other people's turns are background noise", lines:["—yes, fine, the numbers, the numbers — listen. While you were thinking, I was doing. It's done."]}
+   ]},
+   {id:"repetition", name:"Repetition", ends:["none","loops"], notches:[
+    {label:"none", desc:"says it once", lines:["I heard you. We'll fix it."]},
+    {label:"self-keywords", desc:"reuses their own load-bearing words", lines:["It's a trust problem. You break trust, you rebuild trust. There's no shortcut around trust."]},
+    {label:"echo-of-others", desc:"repeats your word back, weaponized", lines:["'A little setback.' Huh. A little setback. Say it a third time — see if it shrinks."]},
+    {label:"refrains", desc:"callback phrases across scenes", lines:["Like my mother used to say: slow is smooth. — I know. I say it every week. It's true every week."]},
+    {label:"loops", desc:"repetition under emotion", lines:["Really? Really. No — really? After everything — really."]}
+   ]}
+  ]}
+];
+
+const HUMOR_STYLES = [
+ {id:"none", label:"none / literal", line:"I don't joke about funerals. I've arranged four."},
+ {id:"dry", label:"dry-deadpan", line:"Keep it short. I'm told I hate long meetings."},
+ {id:"sardonic", label:"sardonic-cutting", line:"Half the room will come just to make sure."},
+ {id:"selfdep", label:"self-deprecating", line:"Closed casket. Even dead, I photograph badly."},
+ {id:"teasing", label:"teasing-warm", line:"You're doing the eulogy. Practice now — say something nice about me with a straight face."},
+ {id:"bawdy", label:"bawdy", line:"Bury me face down, so the whole town can kiss my ass on the way past."},
+ {id:"absurdist", label:"absurdist", line:"I want a magician at the reception. Not a good one. I want people uncertain."},
+ {id:"punny", label:"punny-goofy", line:"I'm dying to see who shows up. — What? Someone had to."},
+ {id:"anecdotal", label:"anecdotal", line:"My uncle Gino planned his own funeral, hired the band, then outlived the bandleader. We over-prepare. It's a family curse."}
+];
+
+/* ============================== ORIGIN DATA ============================= */
+/* Grammar-first samples at MEDIUM intensity. Native varieties are rule-governed
+   dialects — the samples show the grammar; never render them by respelling
+   standard pronunciations. Full kits: dialect-and-l1.md (character-voice skill). */
+const VARIETIES = [
+ {id:"", label:"unmarked / standard", note:"", samples:[]},
+ {id:"aave", label:"AAVE", note:"habitual 'be' (regular events, NOT right-now) · copula absence where SE contracts · completive 'done' · negative concord & inversion", samples:[
+  "Your brother been by here twice. He be coming round every time you get paid — you notice that?",
+  "Can't nobody tell him nothing when he like this.",
+  "He done left before I could even get to the door."]},
+ {id:"southern", label:"Southern US", note:"fixin' to · double modals (might could) · perfective done · y'all / all y'all · personal dative", samples:[
+  "Your brother came by — I was fixin' to call you. You might oughta talk to him 'fore your mama hears it elsewhere.",
+  "I done told him twice, and he ain't listening.",
+  "Y'all might could settle this over supper. I'll fix him a plate."]},
+ {id:"nyc", label:"New York City", note:"stand ON line · indirect questions keep question order · Yiddish-influenced fronting · interruption-as-engagement", samples:[
+  "Your brother came by. Twice. What — he can't call first? Enough already.",
+  "He wanted to know when will you be back. On line at the bodega, he tells me this.",
+  "A patient man, your brother is not."]},
+ {id:"london", label:"London (Cockney → MLE)", note:"invariant 'innit' / 'you get me' · intensifiers bare/proper · preterite 'never' · 3sg 'don't'", samples:[
+  "Your brother came round, innit. Man was proper vexed, you get me.",
+  "I never took his keys — he left them himself. She don't believe me, but still.",
+  "Told him allow it, come back later, we'll sort it."]},
+ {id:"irish", label:"Irish English", note:"after-perfect (hot news) · habitual 'do be' · echo answers, not yes/no · clause-final 'so' · 'sure' opener", samples:[
+  "Your brother's after calling round — I'm only after missing him myself.",
+  "He does be up at the house most evenings anyway. He was in an awful state, so he was.",
+  "— Will he come back? — He will. Sure you know yourself what he's like."]},
+ {id:"scottish", label:"Scottish", note:"clitic -nae (the one licensed respelling family) · 'no' after contractions · double modals · 'the day/the morn'", samples:[
+  "Your brother came by — I couldnae stop him, and he's no happy.",
+  "Ye might want tae phone him the day, no the morn.",
+  "Thae keys is his, by the way. He kent where ye keep them."]},
+ {id:"custom", label:"other (describe in features)", note:"", samples:[]}
+];
+
+const L1S = [
+ {id:"", label:"— (native English)", note:"", samples:[]},
+ {id:"french", label:"French", note:"no do-support · 'since' + present · calques (explain me, I am agree, it's me who…) · false friends (actually, deceive, assist) · tag 'no?' / universal \"isn't it?\"", samples:[
+  "I am waiting since one hour, and now you tell me it is not ready?",
+  "How do you call the part who is broken? Explain me, because me, I don't understand.",
+  "You are the specialist, it's you who said it was nothing. It's better we finish today, no?"]},
+ {id:"spanish", label:"Spanish", note:"pro-drop ('Is important…') · 'the people is' · no-inversion questions · double negative · calques (present you, have X years)", samples:[
+  "Is not possible to wait more — the people is waiting since Monday.",
+  "You can fix it today? Because I didn't see nothing wrong last week.",
+  "Let me present you my cousin. He has thirty years and very good hands."]},
+ {id:"russian", label:"Russian", note:"article absence · present-tense copula drop ('He doctor') · missing infinitive 'to' · 'I very like' · 'feel myself'", samples:[
+  "Is simple. He is engineer, I am engineer — we fix without instruction.",
+  "Why you need permission? I want finish today.",
+  "I very like this car. But today I feel myself not so good about engine."]},
+ {id:"german", label:"German", note:"'since' + present · V2 word order (verb–object separation) · time-before-place · false friends (become = get; will = want) · tag 'or?'", samples:[
+  "I wait since two hours here. You said me it is ready.",
+  "Where do I become now my car? I have already yesterday paid.",
+  "She drives very good, or? So I take every morning the bus. It goes also."]},
+ {id:"mandarin", label:"Mandarin", note:"no plural / no 3sg-s / no tense inflection ('already' does the work) · topic-comment · paired conjunctions (although…but) · open/close verb calques", samples:[
+  "Yesterday he already fix two car. This shop, very busy.",
+  "Although he is slow, but he is careful. You don't worry.",
+  "You can open the light when you leave? My eyes, not so good."]},
+ {id:"arabic", label:"Arabic", note:"present copula drop · definite-article spread ('the life') · stative progressive ('I am knowing') · and…and chaining · resumptive pronouns", samples:[
+  "The car ready tomorrow — I promise you this, and we open early, and we call you, and everything will be good.",
+  "My brother, he is knowing the engines very well. Since ten years he works with them.",
+  "The patience is important. You are angry now, but tomorrow you forget."]},
+ {id:"indian", label:"Hindi / Indian English", note:"a legitimate institutional variety, not errors: stative progressive · focus 'only'/'itself' · invariant tags · lexicon (prepone, do the needful, revert)", samples:[
+  "The part itself is not available, no? I will prepone your booking to Monday only.",
+  "He is knowing this engine better than anyone. You are coming at four, isn't it?",
+  "Kindly do the needful and revert. We will not keep you waiting, that much I can tell you."]},
+ {id:"custom", label:"other (describe in features)", note:"", samples:[]}
+];
+
+/* ============================== PRESETS ================================= */
+/* Eight full stacks showing how axes COMBINE. Original characters, corpus-informed. */
+const PRESETS = [
+ {name:"TOMMY ADESANYA — the fixer", essence:"A man paid to make problems quiet, who treats words like they're billed by the syllable.",
+  identity:"48, Brooklyn. Ex-cop, now 'consultant' for people who can't call the police. Speech must survive: interrogations from both sides of the table.",
+  sliders:{directness:0,candor:2,display:0,tact:1,length:0,completeness:1,certainty:3,momentum:0,register:1,texture:0,profanity:2,tempo:3,turntaking:3,repetition:0},
+  humor:{styles:["dry"],target:"the world",off:"his daughter"},
+  markers:{openers:"Here's what happens next. / Listen.",tags:"—",concede:"'Fair.' — one word, means it",address:"first names only; never nicknames"},
+  origin:{variety:"nyc",l1:"",prof:"",intensity:"light",features:"'Enough already.'; indirect questions keep question order; Yiddish fronting — 'A genius, he's not.'",codeswitch:"never switches",edu:"schooled",era:"1990s",cls:"working-class pride"},
+  engine:{sigmove:"Economy as menace — the shorter his sentences get, the worse your situation is.",obsessions:"loose ends; who owes whom",metaphors:"plumbing, debts, weather",taboos:"his badge years — deflects with 'different life'",tic1:"'Enough already.'",tic2:"",neversays:"'to be honest' (implies a dishonest mode); apologies he doesn't mean"},
+  pressure:{anger:"Gets QUIETER and shorter. Full sentences mean you're safe; two words mean run.",fear:"Tempo drops, checks exits verbally — 'Who else knows. Who else.'",grief:"Goes procedural — plans the funeral instead of feeling it.",deceit:"Suddenly generous with detail — the only time he over-explains.",tender:"Insults soften into logistics: 'You ate? Eat.'"},
+  samples:["Here's what happens next. You don't talk, I make two calls, and your cousin never hears about it.","On accident? Nothing you do is on accident.","You ate? Eat. Then we fix your mess."]},
+
+ {name:"PROF. ADAEZE OKAFOR", essence:"A scholar who mistakes precision for kindness — and is right often enough to be dangerous.",
+  identity:"61, Lagos-born, Oxford-trained economist, thirty years in American universities. Speech must survive: senate hearings, dissertation defenses, family WhatsApp.",
+  sliders:{directness:1,candor:1,display:1,tact:3,length:3,completeness:4,certainty:4,momentum:1,register:4,texture:4,profanity:0,tempo:2,turntaking:2,repetition:1},
+  humor:{styles:["dry","sardonic"],target:"the world",off:"nothing — the wit sharpens under fire"},
+  markers:{openers:"'Consider.' / 'Two things.'",tags:"'…yes?' when teaching",concede:"'That is fair, as far as it goes.'",address:"titles until invited otherwise; students are 'Ms./Mr.'"},
+  origin:{variety:"custom",l1:"",prof:"",intensity:"light",features:"Nigerian-British formal cadence: full forms over contractions when serious; proverb reached for at decision points ('The goat eats where it is tethered.')",codeswitch:"Igbo proverbs when the English one would flatter the listener",edu:"academic",era:"quotes The Economist from memory",cls:"first-generation wealth, wears it quietly"},
+  engine:{sigmove:"Devastation by syllogism — she never raises her voice, she raises the premise.",obsessions:"incentives; what people do versus what they say",metaphors:"markets, tethered goats, harmattan weather",taboos:"her late husband — deflects into a student's progress",tic1:"'Consider.'",tic2:"",neversays:"'I feel like'; 'super'; unearned superlatives"},
+  pressure:{anger:"Cold and MORE precise — footnotes appear in speech; contractions vanish entirely.",fear:"Retreats to data; voice steady, hands not.",grief:"Proverbs stop. Plain short English — the absence of ornament is the tell.",deceit:"She doesn't lie; she scopes. 'Within the terms of your question — no.'",tender:"Feeds people facts they can use — advice is her love language."},
+  samples:["Consider. The data does not care how the department feels about it, yes?","That is fair, as far as it goes. It does not go far.","You will eat before you argue with me. Both take strength."]},
+
+ {name:"MARION DUFRESNE", essence:"Michelin discipline in a second language — precision as armor, French grammar rising with the heat of the kitchen.",
+  identity:"38, Lyon-born chef running a Boston kitchen, 2020s. Fifteen years in the US. Speech must survive: service rushes, investor dinners, homesick calls.",
+  sliders:{directness:0,candor:1,display:2,tact:1,length:1,completeness:2,certainty:4,momentum:0,register:3,texture:2,profanity:2,tempo:3,turntaking:3,repetition:2},
+  humor:{styles:["sardonic","dry"],target:"others",off:"her mother's cooking — no jokes there, ever"},
+  markers:{openers:"'Okay. So.' / 'Non, non, non—'",tags:"'…no?' / '…isn't it?'",concede:"'Bon. You are right. Once.'",address:"'chef' up, surnames down; 'chéri' only when someone's bleeding"},
+  origin:{variety:"",l1:"french",prof:"fluent-marked",intensity:"medium",features:"no do-support; 'since' + present; calques — 'Explain me.'; false friends — 'deceived' (= disappointed); article spread",codeswitch:"counting & numbers; rage; tenderness & intimacy",edu:"schooled",era:"contemporary",cls:"institutional hierarchy (brigade, church, army)"},
+  engine:{sigmove:"The angrier she gets, the more French her English becomes — grammar is the thermometer.",obsessions:"standards; heat; what the customer never sees",metaphors:"kitchens, knives, fire, seasons",taboos:"the restaurant she lost in Lyon — deflects by inspecting something",tic1:"'Non, non, non—'",tic2:"tag '…no?'",neversays:"'It's fine' about food; 'whatever'; 'awesome'"},
+  pressure:{anger:"L1 features thicken one notch: articles spread, do-support drops fully, French ejecta ('c'est pas possible'). Sentences shorten. Volume DOWN, tempo UP.",fear:"English goes formal-complete — the grammar she studied, not the grammar she lives.",grief:"French, quietly, then silence. English returns plain.",deceit:"Over-correct English — perfectly grammatical, weirdly slow. Everyone in the kitchen knows.",tender:"Feeds you. Vocabulary shrinks to 'sit', 'eat', 'good, no?'"},
+  samples:["Service is in one hour and you bring me this? Explain me how you burn a beurre blanc. Explain me.","I am chef since fifteen years. You think I don't see what you did? The pan, she tells me everything.","Bon. You are right. Once. Now taste it again — it's better, no?"]},
+
+ {name:"REV. COACH DUBOIS", essence:"A Louisiana preacher-turned-defensive-coordinator who runs every play through scripture and every scripture through football.",
+  identity:"66, Baton Rouge. Forty years of locker rooms and pulpits. Speech must survive: halftime at 21 down, funerals, live radio.",
+  sliders:{directness:4,candor:1,display:3,tact:2,length:3,completeness:2,certainty:3,momentum:2,register:1,texture:1,profanity:0,tempo:1,turntaking:2,repetition:3},
+  humor:{styles:["anecdotal","teasing"],target:"self",off:"other people's grief"},
+  markers:{openers:"'Son.' / 'Now.'",tags:"'…you hear me?'",concede:"'Well. The Lord's been known to use a fool.'",address:"'son', 'baby', 'young man' when the hammer's coming"},
+  origin:{variety:"southern",l1:"",prof:"",intensity:"medium",features:"fixin' to; double modals; perfective done; y'all; personal dative",codeswitch:"prayer & oaths; pulpit register rises for verdicts",edu:"self-taught",era:"slang frozen in an earlier decade",cls:"'we never had it and never missed it'"},
+  engine:{sigmove:"Parable-first — answers arrive as stories about tomatoes, mules, or Moses, and land two beats after he stops talking.",obsessions:"effort versus talent; who shows up when it rains",metaphors:"farming, scripture, fourth quarters",taboos:"his son's accident — deflects to the boy's mother's cooking",tic1:"'…you hear me?'",tic2:"",neversays:"profanity (worst is 'sumbitch', reserved for referees); 'whatever'; quitting words"},
+  pressure:{anger:"Slower and QUIETER, King James rhythm takes over: 'And I will say this once.'",fear:"Prays mid-sentence without marking it — the grammar just turns.",grief:"Stories stop. 'Sit with me a while.' — that's all.",deceit:"He can't. He'll say 'That's not mine to tell' instead.",tender:"Feeds, benches, and blesses — usually in that order."},
+  samples:["Son, my granddaddy grew tomatoes. You can water a green tomato, you can talk to it, you can preach to it — you cannot holler it red. Sit down. Ripen.","I done seen faster boys quit sooner. Speed ain't the question, you hear me?","Y'all might could win this thing. But 'might could' don't lace its own cleats."]},
+
+ {name:"DEX MARLOWE — founder", essence:"A man who has read the first third of forty books and speaks entirely in their summaries.",
+  identity:"34, San Francisco via Ohio. Third startup ('this one's different'). Speech must survive: pitch meetings, all-hands, a deposition he doesn't see coming.",
+  sliders:{directness:1,candor:3,display:3,tact:3,length:2,completeness:2,certainty:4,momentum:3,register:3,texture:3,profanity:1,tempo:4,turntaking:4,repetition:1},
+  humor:{styles:["teasing"],target:"others",off:"the burn rate"},
+  markers:{openers:"'Love this.' / 'Real talk—' / 'So here's the thing—'",tags:"'…right?' seeking the nod",concede:"'Totally. And—' (concession as launchpad)",address:"first names, twice per sentence when closing"},
+  origin:{variety:"",l1:"",prof:"",intensity:"light",features:"",codeswitch:"LinkedIn register in public, Ohio plain when genuinely scared",edu:"schooled",era:"speaks in this quarter's vocabulary — 'agentic', last year it was 'flywheel'",cls:"new money performing older money badly"},
+  engine:{sigmove:"Reframe-as-reflex — bad news enters, narrative exits: 'we're not pivoting, we're refocusing.' The tell is that stress makes it FASTER.",obsessions:"the narrative; optionality; what Naval said",metaphors:"flywheels, rocket ships, poker",taboos:"the second startup — deflects with the lessons-learned version",tic1:"'Real talk—'",tic2:"vocative doubling ('Sarah — Sarah.')",neversays:"'I don't know' (says 'great question' instead); 'no' (says 'not yet')"},
+  pressure:{anger:"Passive-positive: 'I'm not mad, I'm confused' — the jargon thickens as cover.",fear:"Ohio surfaces: short plain sentences, first honest 'I don't know' — it sounds like a different man.",grief:"Frames it, hates himself mid-frame, goes quiet.",deceit:"Fluent, fast, and one metric too specific.",tender:"Drops the register entirely — 'hey. Hey. I got you.' — almost competent at it."},
+  samples:["Love this energy. Real talk — we're not pivoting, we're refocusing the narrative, right?","Sarah — Sarah. The runway isn't short, it's… focused.","(quietly, later) I don't know. I actually don't know. Don't tweet that."]},
+
+ {name:"RUBY OKONJO-LEE — the rookie", essence:"Competence arriving faster than confidence — every sentence asks permission it doesn't need.",
+  identity:"24, first year on the job (lab, precinct, newsroom — she'd apologize in any of them). Speech must survive: senior meetings where she's right.",
+  sliders:{directness:1,candor:1,display:3,tact:3,length:1,completeness:1,certainty:0,momentum:3,register:2,texture:2,profanity:1,tempo:3,turntaking:0,repetition:0},
+  humor:{styles:["selfdep"],target:"self",off:"when someone else is blamed for her work"},
+  markers:{openers:"'So, um—' / 'Quick thing—' / 'Sorry, just—'",tags:"'…if that makes sense?' / '…or not!'",concede:"instant, then un-concedes by evidence: 'Totally — except, um, the data.'",address:"titles + honorifics; first-names people two ranks down from where she could"},
+  origin:{variety:"",l1:"",prof:"",intensity:"light",features:"",codeswitch:"the hedges VANISH when she's talking about the work itself — mid-sentence register jump",edu:"academic",era:"extremely online, suppressing it at work",cls:"scholarship kid radar for who paid for what"},
+  engine:{sigmove:"Hedge, hedge, hedge — then a sentence of pure unhedged expertise that stops the room, then panic about having stopped the room.",obsessions:"being useful; the mistake in row 40 nobody else saw",metaphors:"exams, video games, group projects",taboos:"her student debt — jokes past it fast",tic1:"'…if that makes sense?'",tic2:"",neversays:"'obviously'; 'as I said before' (she'll just re-explain, apologetically)"},
+  pressure:{anger:"Goes formal and cites: 'Per my email—' is her drawn sword.",fear:"Hedges triple, voice smaller — EXCEPT about the work, which stays exact.",grief:"Apologizes for crying while crying.",deceit:"Physically incapable; face announces it first.",tender:"Feeds people links, snacks, and corrections to their forms."},
+  samples:["So, um — quick thing, sorry — the reference values are from the OLD calibration, which is why everyone's numbers are drifting. If that makes sense? Which it does. It's the calibration.","Totally, you're right — except, um, the data.","Per my email. …Sorry. But per my email."]},
+
+ {name:"NAN EILÍS — Cork matriarch", essence:"All information flows through her and none of it flows out unimproved — love administered as tea, guilt, and hot news.",
+  identity:"74, Cork city, corner house, four generations in and out of her kitchen. Speech must survive: wakes, weddings, and the phone.",
+  sliders:{directness:3,candor:2,display:2,tact:2,length:2,completeness:1,certainty:3,momentum:3,register:1,texture:1,profanity:1,tempo:2,turntaking:2,repetition:3},
+  humor:{styles:["teasing","anecdotal"],target:"others",off:"emigration — the jokes stop at the airport"},
+  markers:{openers:"'Sure—' / 'Now.' / 'Wait till I tell you—'",tags:"'…so it is' / '…so I did'",concede:"'Ah, you might be right, I suppose, you might.'",address:"'love', 'pet', full baptismal name when in trouble",},
+  origin:{variety:"irish",l1:"",prof:"",intensity:"medium",features:"after-perfect; habitual 'do be'; echo answers; clause-final 'so'; affirming tag",codeswitch:"prayer & oaths; formal phone-voice for institutions",edu:"schooled",era:"slang frozen in an earlier decade",cls:"'we never had it and never missed it'"},
+  engine:{sigmove:"Hot news as currency — the after-perfect makes everything just-happened, and she is always first with it.",obsessions:"who's home, who's not, who was seen where",metaphors:"weather, the parish, prices then versus now",taboos:"the brother in Boston who stopped writing — deflects to the kettle",tic1:"'…so it is'",tic2:"'Wait till I tell you—'",neversays:"'boundaries'; 'I need space'; any sentence that ends a phone call cleanly"},
+  pressure:{anger:"Politeness inverts into lethal understatement: 'Isn't it well for some.'",fear:"The kettle goes on; questions come in threes.",grief:"Busy hands, echo answers only — 'Was he a good man? — He was. He was.'",deceit:"'I said nothing at all.' (She said something. To Nuala. Only Nuala.)",tender:"Feeds you past protest; the insult softens — 'you great eejit, come here to me.'"},
+  samples:["You're after growing a foot since Christmas, so you are. Sit down till I look at you.","Sure I said nothing at all. I only mentioned it to Nuala, and Nuala'd tell no one, so she would.","Will you stay for the tea? — You will. That wasn't a question, love."]},
+
+ {name:"MRS. HALLORAN, 1943", essence:"Wartime understatement as a moral position — feeling rationed like everything else, and twice as present for it.",
+  identity:"49, London, 1943. Running a boarding house through the Blitz's long tail; a son in the Navy. Speech must survive: telegrams, sirens, other people's panic.",
+  sliders:{directness:2,candor:2,display:1,tact:3,length:2,completeness:2,certainty:3,momentum:0,register:3,texture:2,profanity:0,tempo:1,turntaking:1,repetition:1},
+  humor:{styles:["dry"],target:"the world",off:"the telegram boy's bicycle"},
+  markers:{openers:"'Well.' / 'Now then.'",tags:"'…I dare say' / '…I shouldn't wonder'",concede:"'Quite.' — total, final, unelaborated",address:"Mr./Mrs./Miss + surname, always; 'dear' under bombardment only"},
+  origin:{variety:"custom",l1:"",prof:"",intensity:"light",features:"period grammar as absence: no anachronism ('okay', 'stressed', therapy-speak); shall/should conditionals — 'We shall manage'; litotes as the main emotional instrument — 'not ideal', 'rather a lot'",codeswitch:"BBC formality for officials; plainer for the kitchen",edu:"schooled",era:"1943 to the bone — ration books, wireless, 'before the war' as a place",cls:"respectable-poor; standards ARE the wealth"},
+  engine:{sigmove:"Understatement scaled to catastrophe — the worse the news, the smaller her words: a direct hit is 'a bother'; the sirens dictate the tea.",obsessions:"the house standing; everyone fed; the wireless at six",metaphors:"weather, mending, the last war",taboos:"the unopened letter drawer — deflects to the stove",tic1:"'…I dare say'",tic2:"",neversays:"'devastated' (says 'it won't do'); 'panic'; her son's ship's name aloud"},
+  pressure:{anger:"Impeccable courtesy, arctic: 'You'll forgive me for saying so.'",fear:"Polishes something. Sentences stay level; hands don't.",grief:"'Well.' — then the kettle, then, much later, one plain sentence: 'He was twenty-two.'",deceit:"Only kind lies, ration-sized: 'Plenty left, eat up.'",tender:"Extra butter, silently transferred; 'dear' appears; nothing is said about it."},
+  samples:["We shall manage. We managed the last war on less, I dare say.","Your father would not have said 'gone', Mr. Price. He'd have said 'delayed'. Kindly do the same.","Well. That was rather a lot of noise for a Tuesday. More tea?"]}
+];
+
+/* ===================== CHIP-FIELD OPTIONS & COMPONENT ==================== */
+/* Every former free-text field is now options + an "other/custom" input.    */
+const OPTS = {
+ f_openers:{max:2,opts:["Look,","Well,","So.","Okay, so—","Listen.","Now.","Here's the thing—","Right.","I mean—","[starts mid-thought]"]},
+ f_tags:{max:2,opts:["right?","no?","yeah?","you know?","…yes?","innit","isn't it?","so it is","hm?","or?","[none]"]},
+ f_concede:{single:true,opts:["'Fine.' — with conditions attached","'No, you're right.' — genuine","'Fair.' — one word, means it","'Quite.' — total, final","grudging & pedagogical — 'Right. Of course.'","instant — then un-concedes by evidence","concession as launchpad — 'Totally. And—'","never concedes"]},
+ f_address:{max:2,opts:["honorific + surname","first names","full name when they're in trouble","endearments — sweetheart, love, baby","diminutives & nicknames","man / dude / bro","insults as address","job titles / ranks","no address at all"]},
+ f_humorOff:{single:true,opts:["family","money","their dead","other people's grief","sincerity — praise short-circuits them","fear for someone they love","nothing — sharpens under fire"]},
+ f_codeswitch:{max:3,opts:["with compatriots","counting & numbers","prayer & oaths","rage","tenderness & intimacy","drink & exhaustion","when a word is missing","formal phone-voice for institutions","never switches"]},
+ f_era:{single:true,opts:["period — pre-1900","1900–1945","mid-century (1946–69)","1970s–80s","1990s","2000s","contemporary","near-future","slang frozen in an earlier decade"]},
+ f_class:{max:2,opts:["old money — never names prices","new money — names brands","working-class pride","shabby-genteel","scholarship-kid radar","institutional hierarchy (brigade, church, army)","'we never had it and never missed it'","classless technocrat"]},
+ f_sigmove:{single:true,opts:["the gap — sunny register × dark content","erudition as weapon and hiding place","economy as menace — shorter means worse","interrogative dominance — questions do statements' work","parable-first — answers arrive as stories","understatement scaled to catastrophe","the audited grievance — wrongs as itemized invoices","reframe-as-reflex — bad news in, narrative out","ceremony as weapon — corrects your manners, wins the argument","precision as survival — exactness under accusation","the vulgar translation — lofty things in bar terms","hedge, hedge — then the unhedged scalpel","register whiplash — aria, then four flat words","fluency asymmetry — eloquent in systems, telegraphic with people"]},
+ f_obsessions:{max:3,opts:["money & debts","status — who's up, who's down","the craft / the work","food","family & home","the glory days","health & the body","faith","who was seen where (gossip)","being useful","fairness & the rules","legacy — being remembered"]},
+ f_metaphors:{max:3,opts:["kitchen & food","war & tactics","sports & games","scripture & faith","money & markets","farming & weather","machines & engineering","medicine & the body","sea & navigation","theater & performance","chess & puzzles","law & contracts","nature & animals"]},
+ f_taboos:{max:2,opts:["a past failure","one family member","money troubles","health & the body","the dead & grief","love & feelings","where they come from","one specific name, never spoken"]},
+ f_deflect:{single:true,opts:["changes the subject","attacks the asker","makes a joke","goes procedural — logistics","goes silent","inspects or polishes something","tells someone else's story","offers food or a task"]},
+ f_neversays:{max:3,opts:["apologies","therapy-speak","profanity","current slang","hedges — 'maybe', 'I guess'","corporate jargon","endearments","'I don't know'","'I love you' in usable form","anyone's job title","a flat 'no' — never refuses directly"]},
+ f_angerPol:{single:true,opts:["hot — loud, fast, immediate","cold — quiet, precise, patient","hot then cold — blaze, then the door","cold then hot — the long fuse","almost never angry — disappointment instead"]},
+ f_anger:{max:3,opts:["gets quieter","gets louder","sentences shorten","grows MORE ornate","profanity unlocks","origin features thicken","goes interrogative — questions as verdicts","repetition loops","goes formal & precise","three words, then exit"]},
+ f_fear:{max:3,opts:["hedges multiply","hedges vanish","counts things","goes procedural","courtesy increases","jokes accelerate & cheapen","origin thickens one notch","formality rises — contractions vanish","questions multiply & lose aim","goes still & short"]},
+ f_grief:{max:3,opts:["ornament drops — plain, short, true","flat understatement","busy hands, few words","feeling delegated to tasks & objects","one true sentence, then deflection","echo answers only","goes silent entirely","the jokes stop"]},
+ f_deceit:{max:2,opts:["over-precision","one detail too many","over-cheerful","too fluent, too prepared","charm spike","tempo changes","over-explains the logistics","physically incapable — the face announces it","withholds instead of lying"]},
+ f_tender:{max:3,opts:["only for a child","only the partner","only the dead","via food & logistics","instruction as love","endearments surface","register drops plain","gifts, unexplained","tempo slows by half","almost never visible"]}
+};
+
+/* Feature kits per origin — populate the Signature-features checklist. */
+const ORIGIN_FEATURES = {
+ french:["no do-support — 'You want to leave now?'","'since' + present — 'I am chef since fifteen years.'","calques — 'Explain me.' / 'I am agree.'","false friends — 'You have deceived me' (= disappointed)","article spread — 'The life is beautiful.'","tag 'no?' / universal 'isn't it?'","gendered objects — 'The car, she is broken.'","'Si!' to contradict a negative — 'Si! I mean — yes!'"],
+ spanish:["pro-drop — 'Is important to arrive early.'","'the people is' — singular gente","no-inversion questions — 'You can fix it today?'","double negative — 'I didn't see nothing.'","'present you' — 'Let me present you my cousin.'","age/state with have — 'She has 20 years.' / 'I have hunger.'","adjective after noun — 'a puppy cute'"],
+ russian:["article absence — 'I am good person.'","copula drop — 'He doctor. She very smart.'","missing 'to' — 'I want finish today.'","'I very like this'","'feel myself' — 'I feel myself bad.'","future in if-clause — 'If I will see him…'","'too' for 'either' — 'I don't like it too.'"],
+ german:["'since' + present — 'She lives since three years in London.'","V2 order — 'He plays very often football.'","time before place — 'I drink every morning a tea.'","become = get — 'Where do I become a ticket?'","will = want — 'He will go home' (wants to)","adjective as adverb — 'She dances very good.'","tag 'or?' — 'You are coming, or?'"],
+ mandarin:["no plural / no 3sg-s — 'He like many dog.'","tense by context — 'She run yesterday. I finish already.'","topic-comment — 'This restaurant, very delicious.'","paired conjunctions — 'Although he's slow, but he's careful.'","verb calques — 'Open the light.'","he/she interchange — 'His name is Mary.'","articles dropped — 'I am in supermarket.'"],
+ arabic:["copula drop — 'He happy. The report ready.'","definite-article spread — 'The life is beautiful.'","stative progressive — 'I am knowing him for years.'","and…and chaining — 'and we open early, and we call you…'","resumptive pronoun — 'The man who I saw him is here.'","age calque — 'I have 20 years.'","'since' + present — 'I live here since 2 years.'"],
+ indian:["stative progressive — 'I am understanding it.'","focus 'only' / 'itself' — 'I was in Toronto only.'","invariant tags — 'He's here, no? / isn't it?'","wh-question without inversion — 'What you would like to eat?'","reduplication — 'small small things', 'Come come!'","lexicon — prepone, do the needful, revert, good name","'since' + present — 'I am working here since 2019.'"],
+ aave:["habitual 'be' — 'He be working' (= regularly, NOT right now)","copula absence — 'She at home. He talking.'","completive 'done' — 'I done cooked already.'","stressed BIN — 'She BIN married' (long ago, still is)","negative concord & inversion — 'Can't nobody tell him nothing.'","'ain't' for didn't — 'I ain't believe you that day.'","existential 'it's' — 'It's a lot of people out there.'","3sg -s absence — 'He walk. She have.'"],
+ southern:["fixin' to — 'I'm fixin' to call you.'","double modals — 'We might could get a bus.'","perfective done — 'I done told you twice.'","y'all / all y'all / y'all's","personal dative — 'I got me a new truck.'","liketa — 'I liketa died laughing.'","was-leveling — 'We was there all night.'"],
+ nyc:["stand ON line — not in line","indirect questions keep question order — '…when will he come.'","Yiddish fronting — 'A genius, he's not.'","'Enough already.' / 'Go figure.' / 'So sue me.'","youse / youse guys","question answered with a question"],
+ london:["invariant 'innit' — beyond isn't-it contexts","'you get me' / quotative 'This is me: …'","pronoun 'man' — 'Man's been waiting an hour.'","intensifiers bare / proper — 'proper vexed'","preterite 'never' — 'I never took it' (that one time)","3sg 'don't' — 'She don't care.'","'them' as demonstrative — 'them things'"],
+ irish:["after-perfect — 'I'm after losing me wallet' (just now)","habitual 'do be' — 'He does be up there most evenings.'","echo answers — 'Will you stay?' — 'I will.'","clause-final 'so' — 'I'll sit somewhere else, so.'","cleft with reflexive — ''Tis herself that's coming.'","amn't — '…amn't I?'","ye / yous plural","affirming tag — '…so it is.'"],
+ scottish:["clitic -nae — 'ye cannae say that' (the licensed respelling)","'no' after contractions — 'she's no guid'","double modals — 'We micht can get a bus.'","'needs washed' — 'The car needs washed.'","the day / the morn — today / tomorrow","thae / thon demonstratives","wee, ken, outwith, 'How no?'"]
+};
+
+var CFS={};
+function makeCF(id,cfg){
+  const host=document.getElementById(id); if(!host) return;
+  CFS[id]=cfg; host.innerHTML="";
+  (cfg.opts||[]).forEach(o=>{
+    const c=document.createElement("span"); c.className="chip"; c.textContent=o; c.title=o;
+    c.onclick=()=>{
+      if(cfg.single){ host.querySelectorAll(".chip.on").forEach(x=>{ if(x!==c) x.classList.remove("on"); }); c.classList.toggle("on"); }
+      else{
+        const on=host.querySelectorAll(".chip.on").length;
+        if(!c.classList.contains("on") && cfg.max && on>=cfg.max){ toast("Pick at most "+cfg.max+" — a spec is a fingerprint, not a census"); return; }
+        c.classList.toggle("on");
+      }
+      if(id==="f_sigmove") maybeFillEssence();
+      renderAll();
+    };
+    host.appendChild(c);
+  });
+  const inp=document.createElement("input");
+  inp.type="text"; inp.className="cf-custom"; inp.placeholder="other / custom…";
+  inp.addEventListener("input",()=>{ clearTimeout(inp._t); inp._t=setTimeout(renderAll,300); });
+  host.appendChild(inp);
+}
+function cfVal(id){
+  const host=document.getElementById(id); if(!host) return "";
+  const sel=[...host.querySelectorAll(".chip.on")].map(c=>c.textContent);
+  const inp=host.querySelector(".cf-custom");
+  if(inp && inp.value.trim()) sel.push(inp.value.trim());
+  return sel.join(" / ");
+}
+function cfSet(id,val){
+  const host=document.getElementById(id); if(!host) return;
+  const inp=host.querySelector(".cf-custom"); if(inp) inp.value="";
+  host.querySelectorAll(".chip").forEach(c=>c.classList.remove("on"));
+  if(!val) return;
+  const rest=[];
+  val.split(/\s*\/\s*|\s*;\s*|\s*·\s*/).map(s=>s.trim()).filter(Boolean).forEach(part=>{
+    let hit=null; const b=part.toLowerCase();
+    host.querySelectorAll(".chip").forEach(c=>{
+      if(hit) return; const a=c.textContent.toLowerCase();
+      if(a===b || a.includes(b) || b.includes(a.split(" — ")[0])) hit=c;
+    });
+    if(hit) hit.classList.add("on"); else rest.push(part);
+  });
+  if(inp && rest.length) inp.value=rest.join("; ");
+}
+function rebuildOriginFeatures(){
+  const v=document.getElementById("f_variety").value, l=document.getElementById("f_l1").value;
+  const opts=[...(ORIGIN_FEATURES[l]||[]),...(ORIGIN_FEATURES[v]||[])];
+  const prev=cfVal("f_originFeatures");
+  makeCF("f_originFeatures",{max:5,opts});
+  cfSet("f_originFeatures",prev);
+  const note=document.getElementById("featNote");
+  if(note) note.textContent = opts.length ? "Pick 3–5 — real speakers run a personal subset. Grammar-level features only; full kits in dialect-and-l1.md." : "Select a variety or L1 above to load its feature kit.";
+}
+function maybeFillEssence(){
+  const e=document.getElementById("f_essence");
+  if(e && !e.value.trim()) e.value=cfVal("f_sigmove");
+}
+
+/* ============================== ENGINE ================================== */
+const $=id=>document.getElementById(id);
+const ALL_AXES=AXES.flatMap(g=>g.axes.map(a=>({...a,group:g.title,beat:g.beat})));
+const AXMAP=Object.fromEntries(ALL_AXES.map(a=>[a.id,a]));
+const state={sliders:Object.fromEntries(ALL_AXES.map(a=>[a.id,2])),humorStyles:[],lastAxis:"directness",presetSamples:null,presetName:null};
+
+/* ---------- build controls ---------- */
+(function build(){
+  const host=$("axisGroups");
+  AXES.forEach((g,gi)=>{
+    const d=document.createElement("details");d.className="group";if(gi===0)d.open=true;
+    d.innerHTML=`<summary>${g.title} <span class="hint">— ${g.hint}</span></summary><div class="grp-body"></div>`;
+    const body=d.querySelector(".grp-body");
+    g.axes.forEach(a=>{
+      const w=document.createElement("div");w.className="axis";
+      w.innerHTML=`<label class="ax">${a.name}<span class="val" id="val_${a.id}">${a.notches[2].label}</span></label>
+        <input type="range" min="0" max="4" step="1" value="2" id="sl_${a.id}">
+        <div class="ends"><span>${a.ends[0]}</span><span>${a.ends[1]}</span></div>`;
+      body.appendChild(w);
+      w.querySelector("input").addEventListener("input",e=>{
+        state.sliders[a.id]=+e.target.value;
+        $("val_"+a.id).textContent=a.notches[+e.target.value].label;
+        state.lastAxis=a.id;state.presetSamples=null;renderAll("morph");
+      });
+    });
+    host.appendChild(d);
+  });
+  HUMOR_STYLES.forEach(h=>{
+    const c=document.createElement("span");c.className="chip";c.textContent=h.label;c.dataset.id=h.id;
+    c.onclick=()=>{c.classList.toggle("on");
+      state.humorStyles=[...$("humorChips").querySelectorAll(".chip.on")].map(x=>x.dataset.id);
+      state.lastAxis="humor";renderAll("morph");};
+    $("humorChips").appendChild(c);
+  });
+  VARIETIES.forEach(v=>$("f_variety").insertAdjacentHTML("beforeend",`<option value="${v.id}">${v.label}</option>`));
+  L1S.forEach(v=>$("f_l1").insertAdjacentHTML("beforeend",`<option value="${v.id}">${v.label}</option>`));
+  PRESETS.forEach((p,i)=>$("presetSel").insertAdjacentHTML("beforeend",`<option value="${i}">${p.name}</option>`));
+  Object.entries(OPTS).forEach(([id,cfg])=>makeCF(id,cfg));
+  rebuildOriginFeatures();
+  ["f_variety","f_l1","f_intensity","f_prof"].forEach(id=>$(id).addEventListener("change",()=>{
+    if(id==="f_variety"||id==="f_l1") rebuildOriginFeatures();
+    renderAll("origin");
+  }));
+  document.querySelectorAll("#controls input[type=text],#controls textarea,#controls select").forEach(el=>{
+    el.addEventListener("input",()=>{clearTimeout(el._t);el._t=setTimeout(()=>renderAll(),300);});
+  });
+  document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(x=>x.classList.remove("on"));
+    document.querySelectorAll(".pane").forEach(x=>x.classList.remove("on"));
+    t.classList.add("on");$("pane-"+t.dataset.pane).classList.add("on");renderAll();
+  });
+})();
+
+const F=id=>CFS[id]?cfVal(id):($(id)?$(id).value.trim():"");
+const SV=(id,val)=>{ if(CFS[id]) cfSet(id,val); else if($(id)) $(id).value=val||""; };
+function toast(msg){const t=$("toast");t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",2200);}
+
+/* ---------- morph pane ---------- */
+function renderMorph(){
+  const p=$("pane-morph");let html="";
+  if(state.presetSamples){
+    html+=`<h3 class="ph">Preset loaded: ${state.presetName}</h3><div class="ph-sub">Three lines in this stack's voice — then touch any control to see that axis morph.</div>`;
+    state.presetSamples.forEach(l=>html+=`<div class="morph-notch current"><div class="mline">${l}</div></div>`);
+    p.innerHTML=html;return;
+  }
+  if(state.lastAxis==="humor"){
+    html+=`<h3 class="ph">Humor — the joke they'd make</h3><div class="ph-sub">Beat: joking about their own funeral. Selected styles highlighted; the Espenson test says the joke predicts the stress response too.</div>`;
+    HUMOR_STYLES.forEach(h=>{
+      html+=`<div class="morph-notch ${state.humorStyles.includes(h.id)?"current":""}"><div class="nl">${h.label}</div><div class="mline">${h.line}</div></div>`;
+    });
+    p.innerHTML=html;return;
+  }
+  const a=AXMAP[state.lastAxis];
+  html+=`<h3 class="ph">${a.group} → ${a.name}</h3><div class="ph-sub">${a.beat} The same beat rendered at every notch — your current setting is highlighted. One axis at a time; combinations live in the Rough composite and (really) in the audition scene.</div>`;
+  a.notches.forEach((n,i)=>{
+    html+=`<div class="morph-notch ${i===state.sliders[a.id]?"current":""}">
+      <div class="nl">${i+1}. ${n.label}</div><div class="nd">${n.desc}</div>
+      ${n.lines.map(l=>`<div class="mline">${l}</div>`).join("")}</div>`;
+  });
+  p.innerHTML=html;
+}
+
+/* ---------- origin pane ---------- */
+function renderOrigin(){
+  const p=$("pane-origin");
+  const v=VARIETIES.find(x=>x.id===$("f_variety").value)||VARIETIES[0];
+  const l=L1S.find(x=>x.id===$("f_l1").value)||L1S[0];
+  let html=`<h3 class="ph">Origin samples</h3><div class="ph-sub">Grammar-first renderings at MEDIUM intensity. The rule: carry origin in grammar, idiom and rhythm — not respelled pronunciation. Pick 3–5 signature features per character, never the whole kit.</div>`;
+  if(!v.id&&!l.id) html+=`<div class="warn">No variety or L1 selected. Choose one in the Origin group to see its sample grammar.</div>`;
+  if(v.id&&v.samples.length){
+    html+=`<h3 class="ph" style="font-size:15px">Native variety — ${v.label}</h3><div class="ph-sub">${v.note}</div>`;
+    v.samples.forEach(s=>html+=`<div class="origin-sample"><div class="mline">${s}</div></div>`);
+  }
+  if(l.id&&l.samples.length){
+    html+=`<h3 class="ph" style="font-size:15px">L1 — ${l.label} <span style="color:var(--ink-dim);font-weight:400">(${$("f_prof").value||"fluent-marked"}, ${$("f_intensity").value})</span></h3><div class="ph-sub">${l.note}</div>`;
+    l.samples.forEach(s=>html+=`<div class="origin-sample"><div class="os-t"></div><div class="mline">${s}</div></div>`);
+    html+=`<div class="note" style="margin-top:10px">Intensity dial: <b>light</b> = rhythm + 1 idiom/scene, zero grammar marking most lines · <b>medium</b> = 2–3 consistent grammar features + 1 calque/false-friend event per page · <b>heavy</b> = add dropped auxiliaries and simplified tense, only where low proficiency IS the plot. Under stress, move one notch heavier.</div>`;
+  }
+  p.innerHTML=html;
+}
+
+/* ---------- rough composite ---------- */
+const T_BASES=[
+ {t:"Demanding the car keys, urgent",byDir:[
+  "Give me the keys. We're leaving. Now.",
+  "I need the keys — we have to leave right now.",
+  "Listen to me. In about a minute we need to be gone, so I need the keys.",
+  "You remember what happened to Danny when he waited? I need the keys.",
+  "A bird that stays in a burning barn isn't loyal, it's cooked. Keys."]},
+ {t:"Apologizing for yesterday",byDir:[
+  "Yesterday was my fault. I'm sorry.",
+  "I'm sorry about yesterday. That wasn't me — let me explain.",
+  "About yesterday. I owe you two things: an apology, and the reason.",
+  "My mother used to say sorry with pancakes. I can't cook, so — here I am.",
+  "Even a good clock strikes wrong when it's wound too tight. I was wound too tight."]},
+ {t:"A warning",byDir:[
+  "Do that again and you're finished.",
+  "If you do that again, there will be consequences.",
+  "I want to be precise: doing that a second time changes what happens to you.",
+  "Ask around what happened to the last guy who tried it twice.",
+  "The stove doesn't warn twice, friend. First it's warm. Then it's a lesson."]}
+];
+const SWAPS={
+ street:{"consequences":"a problem","I'm sorry about":"my bad about","precise":"real clear","leave":"go"},
+ elevated:{"there will be consequences":"the repercussions will be considerable","Now.":"This instant.","the reason":"the explanation you are owed"}
+};
+function esc(s){return s.replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]))}
+function compose(base){
+  let s=base;const sl=state.sliders;
+  if(sl.register===0)Object.entries(SWAPS.street).forEach(([k,v])=>s=s.split(k).join(v));
+  if(sl.register===4)Object.entries(SWAPS.elevated).forEach(([k,v])=>s=s.split(k).join(v));
+  if(sl.certainty===0)s="I think "+s.charAt(0).toLowerCase()+s.slice(1).replace(/\. /," , maybe. ");
+  if(sl.certainty===4&&!/[—:]$/.test(s))s=s.replace(/\bI think\b|\bmaybe\b/g,"").replace(/\s+/g," ").trim()+" No question.";
+  if(sl.length===0)s=s.split(/[,—]/).map(x=>x.trim()).filter(Boolean).join(". ").replace(/\.\./g,".");
+  if(sl.length===4)s=s.replace(/\.\s*$/,"")+" — and that's before we even get into the rest of it—";
+  if(sl.profanity>=3)s=s.replace(/\b(keys|consequences|yesterday|stove)\b/,"damn $1");
+  if(sl.profanity===4)s=s.replace(/\bdamn\b/,"goddamn");
+  if(sl.tempo===0)s=s.replace(/^(\w+)/,"$1 — um —");
+  if(sl.tempo===4)s=s.split(". ").join(" — ");
+  if(sl.repetition===4){const w=s.trim().split(" ");const last=w[w.length-1].replace(/[.!?]/,"");s=s+" "+last.charAt(0).toUpperCase()+last.slice(1)+".";}
+  const op=F("f_openers").split("/")[0].trim();if(op&&!op.startsWith("["))s=op.replace(/[,.]?$/,"")+" — "+s.charAt(0).toLowerCase()+s.slice(1);
+  const tag=F("f_tags").split("/")[0].trim();
+  if(tag&&tag!=="—"&&!tag.startsWith("["))s=s.replace(/[.!]\s*$/,"")+", "+tag;
+  const l1=$("f_l1").value;
+  if(l1==="french")s=s.replace(/\bDo you\b/g,"You").replace(/\bwe have to\b/gi,"we must")+(tag?"":" …no?");
+  if(l1==="russian")s=s.replace(/\bthe keys\b/,"keys").replace(/\bI need to\b/,"I need");
+  if(l1==="german")s=s+(tag?"":" …or?");
+  if(l1==="spanish")s=s.replace(/^It is\b/,"Is").replace(/\bIt is\b/,"Is");
+  if(l1==="mandarin"&&/keys/.test(s))s="The keys — "+s.charAt(0).toLowerCase()+s.slice(1);
+  if(l1==="arabic")s=s.replace(/\bis ready\b/,"ready");
+  if(l1==="indian")s=s.replace(/[.!]\s*$/,"")+", isn't it?";
+  return s.replace(/\s+/g," ").replace(/\s([,.!?])/g,"$1").trim();
+}
+function renderComposite(){
+  const p=$("pane-composite");
+  let html=`<h3 class="ph">Rough composite</h3>
+  <div class="warn"><b>Approximation, honestly labeled.</b> These lines are built by mechanical rules stacking your settings — they flatten nuance and can drift toward caricature. Axes that only exist between people (candor, emotional display, momentum, turn-taking) are not represented here, and native-variety grammar is <i>never</i> faked by rules — see the Origin samples tab for the real kits. For the true combined preview: export voice.md and ask Claude for a one-page <b>audition scene</b>.</div>`;
+  T_BASES.forEach(tb=>{
+    html+=`<div class="comp-block"><div class="t">${tb.t}</div><div class="comp-line">“${esc(compose(tb.byDir[state.sliders.directness]))}”</div></div>`;
+  });
+  p.innerHTML=html;
+}
+
+/* ---------- voice card ---------- */
+function renderCard(){
+  const rows=[];const sl=state.sliders;
+  ALL_AXES.forEach(a=>{if(sl[a.id]!==2)rows.push([a.name,`${a.notches[sl[a.id]].label} — ${a.notches[sl[a.id]].desc}`]);});
+  const hum=state.humorStyles.map(id=>HUMOR_STYLES.find(h=>h.id===id).label).join(", ");
+  if(hum)rows.push(["Humor",hum+(F("f_humorTarget")&&F("f_humorTarget")!=="—"?" → "+F("f_humorTarget"):"")]);
+  const v=$("f_variety"),l=$("f_l1");
+  if(v.value)rows.push(["Variety",v.options[v.selectedIndex].text+" ("+F("f_intensity")+")"]);
+  if(l.value)rows.push(["L1",l.options[l.selectedIndex].text+" · "+(F("f_prof")||"—")+" ("+F("f_intensity")+")"]);
+  [["Signature move","f_sigmove"],["Obsessions","f_obsessions"],["Metaphors","f_metaphors"],["Taboos","f_taboos"],["Tics",""],["Never says","f_neversays"]].forEach(([label,id])=>{
+    if(label==="Tics"){const t=[F("f_tic1"),F("f_tic2")].filter(Boolean).join(" · ");if(t)rows.push(["Tics",t]);}
+    else if(F(id))rows.push([label,F(id)]);
+  });
+  $("pane-card").innerHTML=`<div class="card"><h4>${esc(F("f_name")||"UNNAMED VOICE")}</h4>
+  <div class="ess">${esc(F("f_essence")||"— give the mouth a logline —")}</div>
+  ${F("f_identity")?`<p style="font-size:13.5px;color:var(--ink-dim);margin-bottom:12px">${esc(F("f_identity"))}</p>`:""}
+  <dl>${rows.map(([k,vv])=>`<dt>${k}</dt><dd>${esc(vv)}</dd>`).join("")}</dl>
+  ${rows.length===0?'<div class="note">All axes at neutral middle — a spec is a fingerprint; commit to 8–12 values.</div>':""}
+  </div>
+  <div class="note" style="margin-top:10px">The card only lists axes moved off the neutral middle — a spec records what's load-bearing, not a census.</div>`;
+}
+
+/* ---------- export / import ---------- */
+function buildVoiceMd(){
+  const sl=state.sliders;const nm=F("f_name")||"UNNAMED";
+  const ax=id=>{const a=AXMAP[id];const n=a.notches[sl[id]];return `${n.label} — ${n.desc}`;};
+  const line=(k,v)=>v?`- ${k}: ${v}\n`:"";
+  const moved=id=>sl[id]!==2;
+  let md=`# VOICE: ${nm}\n${F("f_essence")||"<one-line essence>"}\n\n## Identity\n${F("f_identity")||"<who/where/when; what their speech must survive>"}\n\n## Speech DNA\n\n**Stance**\n`;
+  md+=line("Directness",moved("directness")||true?ax("directness"):"");
+  md+=line("Candor",ax("candor"));
+  md+=line("Emotional display",ax("display"));
+  md+=line("Tact",ax("tact"));
+  const hum=state.humorStyles.map(id=>HUMOR_STYLES.find(h=>h.id===id).label).join(" + ");
+  md+=line("Humor",(hum||"unspecified")+(F("f_humorTarget")&&F("f_humorTarget")!=="—"?", aimed at "+F("f_humorTarget"):"")+(F("f_humorOff")?"; off-switch: "+F("f_humorOff"):""));
+  md+=`\n**Syntax**\n`+line("Sentence length",ax("length"))+line("Completeness",ax("completeness"))+line("Certainty",ax("certainty"))+line("Momentum",ax("momentum"));
+  md+=`\n**Lexicon**\n`+line("Register",ax("register"))+line("Word texture",ax("texture"))+line("Profanity",ax("profanity"));
+  const mk=[F("f_openers")&&"openers: "+F("f_openers"),F("f_tags")&&"tags: "+F("f_tags"),F("f_concede")&&"concession: "+F("f_concede"),F("f_address")&&"address: "+F("f_address")].filter(Boolean).join("; ");
+  md+=line("Markers",mk);
+  md+=`\n**Sound**\n`+line("Tempo & pause",ax("tempo"))+line("Turn-taking & listening",ax("turntaking"))+line("Repetition",ax("repetition"));
+  const v=$("f_variety"),l=$("f_l1");
+  md+=`\n## Origin & Register Map\n`;
+  if(v.value||l.value||F("f_originFeatures")){
+    if(v.value)md+=`- Native variety: ${v.options[v.selectedIndex].text}, intensity ${F("f_intensity")}\n`;
+    if(l.value)md+=`- L1: ${l.options[l.selectedIndex].text}, ${F("f_prof")||"fluent-marked"}, intensity ${F("f_intensity")}\n`;
+    if(F("f_originFeatures"))md+=`- Signature features: ${F("f_originFeatures")}\n`;
+    md+=line("Code-switch triggers",F("f_codeswitch"));
+    md+=line("Education imprint",F("f_edu")!=="—"?F("f_edu"):"");
+    md+=line("Era / generation",F("f_era"));
+    md+=line("Class markers",F("f_class"));
+    md+=`\n(Rendering rule: origin lives in grammar, idiom and rhythm — no respelled pronunciation. Under stress, intensity moves one notch heavier.)\n`;
+  } else md+=`- Unmarked.\n`;
+  const tabooFull=[F("f_taboos"),F("f_deflect")&&("deflects: "+F("f_deflect"))].filter(Boolean).join(" — ");
+  md+=`\n## Idiolect Kit\n`+line("Signature move",F("f_sigmove")||"<the ONE mechanism — mandatory>")+line("Obsessions & steering topics",F("f_obsessions"))+line("Metaphor source-domains",F("f_metaphors"))+line("Taboos & deflection",tabooFull);
+  const tics=[F("f_tic1"),F("f_tic2")].filter(Boolean).join(" · ");
+  md+=line("Catchphrases/tics (MAX 2)",tics)+line("Never says",F("f_neversays"));
+  const angerFull=[F("f_angerPol"),F("f_anger")].filter(Boolean).join("; ");
+  md+=`\n## Under Pressure\n`+line("Anger",angerFull||"<hot or cold? which axes move?>")+line("Fear/stress",F("f_fear")||"<e.g. complexity collapses; L1 thickens one notch>")+line("Grief/hurt",F("f_grief"))+line("Deceit (tells)",F("f_deceit"))+line("Tenderness",F("f_tender"));
+  md+=`\n## Calibration Lines\n(Rough composite output — REPLACE by asking Claude for an audition scene, then keep the 6–10 best lines here, labeled by state.)\n`;
+  T_BASES.forEach((tb,i)=>md+=`${i+1}. [${tb.t.toLowerCase()}] "${compose(tb.byDir[sl.directness])}"\n`);
+  md+=`\n## Provenance\nDesigned in Voice Designer on ${new Date().toISOString().slice(0,10)}. Companion skills: character-voice (create/extract/refine/audition) · voice-dialogue (write/judge scenes from this file).\n`;
+  return md;
+}
+function download(name,text){const b=new Blob([text],{type:"text/markdown"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=name;a.click();URL.revokeObjectURL(a.href);}
+$("btnExport").onclick=()=>{const nm=(F("f_name")||"unnamed").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");download(nm+".voice.md",buildVoiceMd());toast("voice.md downloaded");};
+$("btnCopy").onclick=async()=>{try{await navigator.clipboard.writeText(buildVoiceMd());toast("voice.md copied");}catch(e){toast("Copy blocked — use Download");}};
+$("btnReset").onclick=()=>location.reload();
+$("btnImport").onclick=()=>$("fileImport").click();
+$("fileImport").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{importVoiceMd(r.result);};r.readAsText(f);e.target.value="";
+});
+function importVoiceMd(txt){
+  const get=re=>{const m=txt.match(re);return m?m[1].trim():"";};
+  $("f_name").value=get(/^# VOICE:\s*(.+)$/m);
+  const lines=txt.split("\n");const ti=lines.findIndex(l=>/^# VOICE:/.test(l));
+  if(ti>=0&&lines[ti+1]&&!/^#/.test(lines[ti+1]))$("f_essence").value=lines[ti+1].trim();
+  $("f_identity").value=get(/## Identity\n([\s\S]*?)\n\n/);
+  ALL_AXES.forEach(a=>{
+    const re=new RegExp(`- ${a.name.replace(/[-/\\^$*+?.()|[\]{}]/g,"\\$&")}\\s*(?:&[^:]*)?:\\s*([a-z\\- ]+?)(?:\\s+—|$)`,"mi");
+    const m=txt.match(re);if(m){const idx=a.notches.findIndex(n=>n.label===m[1].trim());if(idx>=0){state.sliders[a.id]=idx;$("sl_"+a.id).value=idx;$("val_"+a.id).textContent=a.notches[idx].label;}}
+  });
+  const hum=get(/- Humor:\s*(.+)$/m);
+  document.querySelectorAll("#humorChips .chip").forEach(c=>{
+    const on=hum.toLowerCase().includes(c.textContent.split("/")[0].trim().toLowerCase().slice(0,5));
+    c.classList.toggle("on",on);
+  });
+  state.humorStyles=[...document.querySelectorAll("#humorChips .chip.on")].map(x=>x.dataset.id);
+  SV("f_humorOff",(hum.match(/off-switch:\s*(.+)$/i)||[])[1]||"");
+  const mk=get(/- Markers:\s*(.+)$/m);
+  const mkPart=k=>{const m=mk.match(new RegExp(k+":\\s*([^;]+)"));return m?m[1].trim():"";};
+  SV("f_openers",mkPart("openers"));SV("f_tags",mkPart("tags"));SV("f_concede",mkPart("concession"));SV("f_address",mkPart("address"));
+  const vv=get(/- Native variety:\s*([^,\n]+)/);const vId=(VARIETIES.find(x=>x.label===vv)||{}).id;if(vId!==undefined&&vId!=="")$("f_variety").value=vId||"";
+  const l1=get(/- L1:\s*([^,\n]+)/);const lId=(L1S.find(x=>x.label===l1)||{}).id;if(lId)$("f_l1").value=lId;
+  const inten=get(/intensity\s+(light|medium|heavy)/i);if(inten)$("f_intensity").value=inten.toLowerCase();
+  const prof=get(/- L1:[^,\n]+,\s*([a-z\-]+),/i);if(prof)$("f_prof").value=prof;
+  rebuildOriginFeatures();
+  SV("f_originFeatures",get(/- Signature features:\s*([\s\S]+?)(?=\n- |\n\n)/));
+  SV("f_codeswitch",get(/- Code-switch triggers:\s*(.+)$/m));
+  SV("f_era",get(/- Era \/ generation:\s*(.+)$/m));
+  SV("f_class",get(/- Class markers:\s*(.+)$/m));
+  const eduV=get(/- Education imprint:\s*(.+)$/m);if(eduV)$("f_edu").value=eduV;
+  SV("f_sigmove",get(/- Signature move:\s*(.+)$/m).replace(/^<.*>$/,""));
+  SV("f_obsessions",get(/- Obsessions[^:]*:\s*(.+)$/m));
+  SV("f_metaphors",get(/- Metaphor[^:]*:\s*(.+)$/m));
+  const tabRaw=get(/- Taboos[^:]*:\s*(.+)$/m).split(/—\s*deflects:\s*/i);
+  SV("f_taboos",(tabRaw[0]||"").trim());SV("f_deflect",(tabRaw[1]||"").trim());
+  const tics=get(/- Catchphrases\/tics[^:]*:\s*(.+)$/m).split("·");
+  $("f_tic1").value=(tics[0]||"").trim();$("f_tic2").value=(tics[1]||"").trim();
+  SV("f_neversays",get(/- Never says:\s*(.+)$/m));
+  const angRaw=get(/- Anger:\s*(.+)$/m).replace(/^<.*>$/,"").split(/;\s*/);
+  SV("f_angerPol",angRaw.length>1?angRaw[0]:"");SV("f_anger",(angRaw.length>1?angRaw.slice(1).join("; "):angRaw[0])||"");
+  SV("f_fear",get(/- Fear\/stress:\s*(.+)$/m).replace(/^<.*>$/,""));
+  SV("f_grief",get(/- Grief\/hurt:\s*(.+)$/m));
+  SV("f_deceit",get(/- Deceit[^:]*:\s*(.+)$/m));
+  SV("f_tender",get(/- Tenderness:\s*(.+)$/m));
+  state.presetSamples=null;renderAll();toast("voice.md imported (best-effort)");
+}
+
+/* ---------- presets ---------- */
+$("presetSel").addEventListener("change",e=>{
+  const p=PRESETS[+e.target.value];if(!p)return;
+  Object.entries(p.sliders).forEach(([id,v])=>{state.sliders[id]=v;$("sl_"+id).value=v;$("val_"+id).textContent=AXMAP[id].notches[v].label;});
+  document.querySelectorAll("#humorChips .chip").forEach(c=>c.classList.toggle("on",p.humor.styles.includes(c.dataset.id)));
+  state.humorStyles=[...p.humor.styles];
+  $("f_humorTarget").value=p.humor.target;SV("f_humorOff",p.humor.off);
+  $("f_name").value=p.name;$("f_essence").value=p.essence;$("f_identity").value=p.identity;
+  SV("f_openers",p.markers.openers);SV("f_tags",p.markers.tags);SV("f_concede",p.markers.concede);SV("f_address",p.markers.address);
+  $("f_variety").value=p.origin.variety;$("f_l1").value=p.origin.l1;$("f_prof").value=p.origin.prof||"—";$("f_intensity").value=p.origin.intensity;
+  rebuildOriginFeatures();
+  SV("f_originFeatures",p.origin.features);SV("f_codeswitch",p.origin.codeswitch);$("f_edu").value=p.origin.edu||"—";SV("f_era",p.origin.era);SV("f_class",p.origin.cls);
+  SV("f_sigmove",p.engine.sigmove);SV("f_obsessions",p.engine.obsessions);SV("f_metaphors",p.engine.metaphors);SV("f_taboos",p.engine.taboos);SV("f_deflect","");
+  $("f_tic1").value=p.engine.tic1;$("f_tic2").value=p.engine.tic2;SV("f_neversays",p.engine.neversays);
+  SV("f_angerPol","");SV("f_anger",p.pressure.anger);SV("f_fear",p.pressure.fear);SV("f_grief",p.pressure.grief);SV("f_deceit",p.pressure.deceit);SV("f_tender",p.pressure.tender);
+  state.presetSamples=p.samples;state.presetName=p.name;
+  renderAll("morph");toast("Preset loaded — every control now shows this stack");
+});
+
+/* ---------- render root ---------- */
+function renderAll(forceTab){
+  if(forceTab){document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x.dataset.pane===forceTab));
+    document.querySelectorAll(".pane").forEach(x=>x.classList.toggle("on",x.id==="pane-"+forceTab));}
+  const active=document.querySelector(".pane.on").id;
+  if(active==="pane-morph")renderMorph();
+  if(active==="pane-origin")renderOrigin();
+  if(active==="pane-composite")renderComposite();
+  if(active==="pane-card")renderCard();
+  if(active==="pane-export")$("pane-export").innerHTML=`<h3 class="ph">voice.md preview</h3><div class="ph-sub">What Download/Copy produces. Calibration lines are rough-composite placeholders — replace them via an audition scene (character-voice skill).</div><pre class="md">${esc(buildVoiceMd())}</pre>`;
+}
+renderAll();
+</script>
+</body>
+</html>

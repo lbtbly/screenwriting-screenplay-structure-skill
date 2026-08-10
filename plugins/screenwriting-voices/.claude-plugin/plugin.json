@@ -1,0 +1,16 @@
+{
+  "name": "screenwriting-voices",
+  "version": "0.2.0",
+  "description": "Parameterized character-voice system for screenwriting: design voice.md specs (16-axis taxonomy, dialect/L1 kits, interactive Voice Designer), then write, judge, and audit dialogue from them.",
+  "author": {
+    "name": "Lambert Bouley"
+  },
+  "license": "Includes material adapted from conorbronsdon/avoid-ai-writing (MIT) - see NOTICE.md",
+  "keywords": [
+    "screenwriting",
+    "dialogue",
+    "character-voice",
+    "voice-spec",
+    "judging"
+  ]
+}

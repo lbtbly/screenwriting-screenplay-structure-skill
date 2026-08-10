@@ -1,0 +1,17 @@
+{
+  "name": "screenwriting-structure",
+  "version": "0.1.0",
+  "description": "Evidence-based plot structure for screenwriting: design structure.md specs from 20 frameworks with measured page targets, then audit drafts against them. Backed by 42 page-referenced analyses of produced screenplays.",
+  "author": {
+    "name": "Lambert Bouley"
+  },
+  "keywords": [
+    "screenwriting",
+    "structure",
+    "beat-sheet",
+    "outline",
+    "story-structure",
+    "structure-spec",
+    "audit"
+  ]
+}
